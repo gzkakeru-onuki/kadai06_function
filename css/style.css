@@ -1,0 +1,19 @@
+body {
+    font-family: Arial, sans-serif;
+}
+
+#editor {
+    height: 300px;
+    border: 1px solid #ccc;
+    margin-top: 20px;
+}
+
+#login-form,
+#editor-section {
+    max-width: 600px;
+    margin: auto;
+}
+
+#editor-section {
+    display: none;
+}

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>リアルタイムコード共有アプリ</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div id="login-form">
+        <h2>ログインしてコードを共有</h2>
+        <input type="email" id="email" placeholder="メールアドレス"><br>
+        <input type="password" id="password" placeholder="パスワード"><br>
+        <button id="login-btn">ログイン</button>
+        <button id="register-btn">登録</button>
+    </div>
+
+    <div id="editor-section">
+        <h2>リアルタイムコードエディター</h2>
+        <div id="editor"></div>
+        <button id="logout-btn">ログアウト</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+
+        // Firebase設定
+        import { firebaseConfig } from "./js/config.js";
+
+        // Firebase初期化
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const auth = getAuth(app);
+
+        let editor;
+
+        // jQueryでボタンにイベントリスナーを設定
+        $(document).ready(function () {
+            $('#login-btn').click(login);
+            $('#register-btn').click(register);
+            $('#logout-btn').click(logout);
+        });
+
+        // ユーザーログイン関数
+        function login() {
+            const email = $('#email').val();
+            const password = $('#password').val();
+            try {
+                signInWithEmailAndPassword(auth, email, password);
+                $('#login-form').hide();
+                $('#editor-section').show();
+                setupEditor();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        // ユーザー登録関数
+        function register() {
+            const email = $('#email').val();
+            const password = $('#password').val();
+            try {
+                createUserWithEmailAndPassword(auth, email, password);
+                alert("登録成功！ログインしてください");
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        // ログアウト関数
+        function logout() {
+            signOut(auth);
+            $('#login-form').show();
+            $('#editor-section').hide();
+        }
+
+        // CodeMirrorエディタの設定
+        function setupEditor() {
+            editor = CodeMirror(document.getElementById('editor'), {
+                mode: "javascript",
+                lineNumbers: true,
+                lineWrapping: true,
+            });
+
+            // Firebase Realtime Databaseからコードを取得しエディタに表示
+            const codeRef = ref(database, "shared_code");
+            onValue(codeRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    // 現在のカーソル位置を取得
+                    const cursor = editor.getCursor();
+                    const line = cursor.line;
+                    const ch = cursor.ch;
+
+                    // 変更が必要な場合のみエディタの値を更新
+                    if (editor.getValue() !== data) {
+                        editor.setValue(data);
+                        // 元のカーソル位置に戻す
+                        editor.setCursor(line, ch);
+                    }
+                }
+            });
+
+            // エディタの変更をリアルタイムでFirebaseに保存
+            editor.on("change", () => {
+                const code = editor.getValue();
+                set(codeRef, code).catch(error => console.error(`データ保存エラー: ${error.message}`));
+            });
+        }
+    </script>
+</body>
+
+</html>
